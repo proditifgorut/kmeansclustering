@@ -1,0 +1,73 @@
+import React from 'react';
+import { Play, SlidersHorizontal, Loader, Settings, BrainCircuit } from 'lucide-react';
+
+interface PsoControlsProps {
+  k: number; onKChange: (v: number) => void;
+  numPoints: number; onNumPointsChange: (v: number) => void;
+  clusterSpread: number; onClusterSpreadChange: (v: number) => void;
+  swarmSize: number; onSwarmSizeChange: (v: number) => void;
+  psoIterations: number; onPsoIterationsChange: (v: number) => void;
+  inertiaWeight: number; onInertiaWeightChange: (v: number) => void;
+  c1: number; onC1Change: (v: number) => void;
+  c2: number; onC2Change: (v: number) => void;
+  onRun: () => void;
+  isLoading: boolean;
+}
+
+const Slider = ({ label, value, onChange, min, max, step, help }: any) => (
+  <div>
+    <label className="mb-1 flex justify-between text-sm font-medium text-slate-300">
+      <span>{label}</span>
+      <span className="font-mono text-brand-purple">{value}</span>
+    </label>
+    <input
+      type="range"
+      min={min} max={max} step={step}
+      value={value}
+      onChange={(e) => onChange(parseFloat(e.target.value))}
+      className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-brand-purple"
+    />
+    {help && <p className="text-xs text-slate-500 mt-1">{help}</p>}
+  </div>
+);
+
+export const PsoControls: React.FC<PsoControlsProps> = (props) => {
+  const { onRun, isLoading } = props;
+  return (
+    <div className="card p-6">
+      <div className="space-y-6">
+        <div>
+          <h2 className="flex items-center gap-2 text-xl font-semibold text-white">
+            <BrainCircuit size={22} className="text-brand-purple" />
+            Parameter Optimasi PSO
+          </h2>
+          <p className="text-sm text-slate-400">Atur parameter untuk data dan algoritma PSO-KMeans.</p>
+        </div>
+
+        <div className="space-y-4 rounded-lg border border-dark-border p-4">
+          <h3 className="flex items-center gap-2 text-md font-semibold text-white"><Settings size={18} /> Parameter Data</h3>
+          <Slider label="Jumlah Klaster (K)" value={props.k} onChange={props.onKChange} min={2} max={10} step={1} />
+          <Slider label="Jumlah Titik Data" value={props.numPoints} onChange={props.onNumPointsChange} min={50} max={1000} step={10} />
+          <Slider label="Sebaran Klaster" value={props.clusterSpread} onChange={props.onClusterSpreadChange} min={1} max={20} step={1} />
+        </div>
+
+        <div className="space-y-4 rounded-lg border border-dark-border p-4">
+          <h3 className="flex items-center gap-2 text-md font-semibold text-white"><SlidersHorizontal size={18} /> Parameter PSO</h3>
+          <Slider label="Ukuran Swarm (Partikel)" value={props.swarmSize} onChange={props.onSwarmSizeChange} min={10} max={100} step={5} />
+          <Slider label="Iterasi PSO" value={props.psoIterations} onChange={props.onPsoIterationsChange} min={10} max={200} step={5} />
+          <Slider label="Bobot Inersia (w)" value={props.inertiaWeight} onChange={props.onInertiaWeightChange} min={0.1} max={1.2} step={0.05} />
+          <Slider label="Koefisien Kognitif (c1)" value={props.c1} onChange={props.onC1Change} min={0.1} max={3} step={0.1} />
+          <Slider label="Koefisien Sosial (c2)" value={props.c2} onChange={props.onC2Change} min={0.1} max={3} step={0.1} />
+        </div>
+
+        <button onClick={onRun} disabled={isLoading} className="btn btn-primary w-full">
+          {isLoading ? (
+            <><Loader className="mr-2 h-4 w-4 animate-spin" /> Menjalankan...</>
+          ) : (
+            <><Play className="mr-2 h-4 w-4" /> Jalankan Optimasi</>
+          )}
+        </button>
+      </div>
+    </div>
+  );
+};

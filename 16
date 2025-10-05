@@ -1,0 +1,41 @@
+import React from 'react';
+import { NavLink } from 'react-router-dom';
+
+const navLinkClasses = "px-4 py-2 rounded-md text-sm font-medium transition-colors duration-200";
+const activeLinkClasses = "bg-brand-purple text-white shadow-lg";
+const inactiveLinkClasses = "text-slate-300 hover:bg-slate-700/50 hover:text-white";
+
+export const Header: React.FC = () => {
+  return (
+    <header className="mb-8 md:mb-12">
+      <div className="text-center">
+        <h1 className="text-4xl font-bold tracking-tight text-white sm:text-5xl md:text-6xl">
+          Visualisasi Klastering <span className="text-brand-purple">K-Means</span>
+        </h1>
+        <p className="mx-auto mt-4 max-w-3xl text-lg text-slate-400">
+          Alat interaktif untuk menganalisis dan mensimulasikan algoritma K-Means.
+        </p>
+      </div>
+      <nav className="mt-8 flex flex-wrap justify-center gap-4" aria-label="Main navigation">
+        <NavLink 
+          to="/"
+          className={({ isActive }) => `${navLinkClasses} ${isActive ? activeLinkClasses : inactiveLinkClasses}`}
+        >
+          Visualizer (Data)
+        </NavLink>
+        <NavLink 
+          to="/simulasi"
+          className={({ isActive }) => `${navLinkClasses} ${isActive ? activeLinkClasses : inactiveLinkClasses}`}
+        >
+          Simulasi K-Means
+        </NavLink>
+        <NavLink 
+          to="/optimasi-pso"
+          className={({ isActive }) => `${navLinkClasses} ${isActive ? activeLinkClasses : inactiveLinkClasses}`}
+        >
+          Optimasi PSO
+        </NavLink>
+      </nav>
+    </header>
+  );
+};
