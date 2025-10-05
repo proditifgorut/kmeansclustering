@@ -1,0 +1,30 @@
+import { Routes, Route, Outlet } from 'react-router-dom';
+import { Header } from './components/Header';
+import VisualizerPage from './pages/VisualizerPage';
+import SimulationPage from './pages/SimulationPage';
+import PsoPage from './pages/PsoPage';
+import SimulasiPsoPage from './pages/SimulasiPsoPage';
+
+const Layout = () => (
+  <div className="min-h-screen bg-dark-bg font-sans">
+    <main className="container mx-auto px-4 py-8 md:py-12">
+      <Header />
+      <Outlet />
+    </main>
+  </div>
+);
+
+function App() {
+  return (
+    <Routes>
+      <Route element={<Layout />}>
+        <Route index element={<VisualizerPage />} />
+        <Route path="simulasi" element={<SimulationPage />} />
+        <Route path="optimasi-pso" element={<PsoPage />} />
+        <Route path="simulasi-pso" element={<SimulasiPsoPage />} />
+      </Route>
+    </Routes>
+  );
+}
+
+export default App;
