@@ -1,123 +1,161 @@
-import { KMeansIteration, KMeansResult } from '../types';
+import React, { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { UploadForm } from '../components/UploadForm';
+import { DataTable } from '../components/DataTable';
+import { ClusterChart } from '../components/ClusterChart';
+import { ResultsDisplay } from '../components/ResultsDisplay';
+import { Theory } from '../components/Theory';
+import { KMeansIteration, Point } from '../types';
+import { runKMeansStepByStep, getFinalResultFromHistory } from '../lib/kmeans-step';
+import { Loader, AlertTriangle } from 'lucide-react';
+import { StepControl } from '../components/StepControl';
 
-function euclideanDistance(a: number[], b: number[]): number {
-  return Math.sqrt(a.reduce((sum, val, i) => sum + (val - b[i]) ** 2, 0));
-}
+function VisualizerPage() {
+  const [data, setData] = useState<Point[]>([]);
+  const [allNumericHeaders, setAllNumericHeaders] = useState<string[]>([]);
+  const [selectedColumns, setSelectedColumns] = useState<string[]>([]);
+  const [file, setFile] = useState<File | null>(null);
+  const [k, setK] = useState<number>(3);
+  const [history, setHistory] = useState<KMeansIteration[]>([]);
+  const [currentStep, setCurrentStep] = useState<number>(0);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
 
-export function runKMeansStepByStep(data: number[][], k: number, maxIterations: number = 20): KMeansIteration[] {
-  if (data.length === 0 || k < 1) {
-    throw new Error('Data atau nilai k tidak valid untuk K-Means.');
-  }
-  if (data.length < k) {
-    throw new Error('Jumlah klaster (k) tidak boleh lebih banyak dari jumlah titik data.');
-  }
+  const handleDataLoaded = (d: Point[], h: string[], f: File) => {
+    setData(d);
+    setAllNumericHeaders(h);
+    setFile(f);
+    // Auto-select first 2 or 3 columns
+    setSelectedColumns(h.slice(0, Math.min(h.length, 3)));
+    setError(null);
+    setHistory([]);
+    setCurrentStep(0);
+  };
 
-  const history: KMeansIteration[] = [];
-  let iterationCount = 0;
-
-  // 1. Initialization: Select first K points as initial centroids for deterministic behavior
-  let centroids = data.slice(0, k).map(p => [...p]);
-  let assignments = new Array(data.length).fill(-1);
-  
-  history.push({
-    centroids: JSON.parse(JSON.stringify(centroids)),
-    assignments,
-    stepName: 'Initialization',
-    iteration: iterationCount,
-  });
-
-  for (let i = 0; i < maxIterations; i++) {
-    iterationCount = i + 1;
-    let assignmentsChanged = false;
-
-    // 2. Assignment Step
-    const newAssignments = data.map((point, pointIndex) => {
-      let minDistance = Infinity;
-      let closestCentroidIndex = -1;
-      centroids.forEach((centroid, centroidIndex) => {
-        const distance = euclideanDistance(point, centroid);
-        if (distance < minDistance) {
-          minDistance = distance;
-          closestCentroidIndex = centroidIndex;
-        }
-      });
-      if (assignments[pointIndex] !== closestCentroidIndex) {
-        assignmentsChanged = true;
-      }
-      return closestCentroidIndex;
-    });
-    assignments = newAssignments;
-
-    history.push({
-      centroids: JSON.parse(JSON.stringify(centroids)),
-      assignments: [...assignments],
-      stepName: 'Assignment',
-      iteration: iterationCount,
-    });
-
-    // 3. Update Step
-    const newCentroids: number[][] = Array.from({ length: k }, () => new Array(data[0].length).fill(0));
-    const counts = new Array(k).fill(0);
-
-    data.forEach((point, pointIndex) => {
-      const clusterIndex = assignments[pointIndex];
-      if (clusterIndex !== -1) {
-        counts[clusterIndex]++;
-        point.forEach((value, dimIndex) => {
-          newCentroids[clusterIndex][dimIndex] += value;
-        });
-      }
-    });
-    
-    let centroidsChanged = false;
-    newCentroids.forEach((centroid, centroidIndex) => {
-      const oldCentroid = centroids[centroidIndex];
-      if (counts[centroidIndex] > 0) {
-        const newCentroid = centroid.map(sum => sum / counts[centroidIndex]);
-        if (JSON.stringify(oldCentroid) !== JSON.stringify(newCentroid)) {
-          centroidsChanged = true;
-        }
-        centroids[centroidIndex] = newCentroid;
-      } else {
-        // Re-initialize centroid if cluster becomes empty
-        centroids[centroidIndex] = data[Math.floor(Math.random() * data.length)];
-        centroidsChanged = true;
-      }
-    });
-
-    history.push({
-      centroids: JSON.parse(JSON.stringify(centroids)),
-      assignments: [...assignments],
-      stepName: 'Update',
-      iteration: iterationCount,
-    });
-
-    // 4. Check for convergence
-    if (!assignmentsChanged || !centroidsChanged) {
-      break;
+  const handleProcess = async () => {
+    if (data.length === 0 || k < 2 || selectedColumns.length < 2) {
+      setError('Silakan unggah dataset, pilih 2-3 kolom, dan atur K ke 2 atau lebih.');
+      return;
     }
-  }
+    setIsLoading(true);
+    setError(null);
+    setHistory([]);
+    setCurrentStep(0);
 
-  return history;
-}
-
-export function getFinalResultFromHistory(history: KMeansIteration[], data: number[][]): KMeansResult {
-    if (history.length === 0) {
-        throw new Error("History is empty");
+    try {
+      await new Promise(resolve => setTimeout(resolve, 200));
+      const numericData = data.map(row => selectedColumns.map(header => row[header] as number));
+      const kmeansHistory = runKMeansStepByStep(numericData, k);
+      setHistory(kmeansHistory);
+    } catch (e) {
+      console.error(e);
+      setError('Terjadi kesalahan saat klastering. Silakan periksa format data dan coba lagi.');
+    } finally {
+      setIsLoading(false);
     }
-    const finalState = history[history.length - 1];
-    
-    let inertia = 0;
-    data.forEach((point, index) => {
-        const centroid = finalState.centroids[finalState.assignments[index]];
-        if (centroid) {
-            inertia += euclideanDistance(point, centroid) ** 2;
-        }
-    });
+  };
 
-    return {
-        assignments: finalState.assignments,
-        centroids: finalState.centroids,
-        inertia,
-    };
+  const isProcessed = history.length > 0;
+  const isFinalStep = isProcessed && currentStep === history.length - 1;
+  const currentIteration = isProcessed ? history[currentStep] : null;
+  const finalResult = isProcessed ? getFinalResultFromHistory(history, data.map(row => selectedColumns.map(header => row[header] as number))) : null;
+
+  return (
+    <>
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-12">
+        <div className="lg:col-span-4 space-y-6">
+          <div className="card p-6">
+            <UploadForm
+              onDataLoaded={handleDataLoaded}
+              onColumnsSelected={setSelectedColumns}
+              onKChange={setK}
+              k={k}
+              onProcess={handleProcess}
+              isLoading={isLoading}
+              file={file}
+              allNumericHeaders={allNumericHeaders}
+              selectedColumns={selectedColumns}
+            />
+          </div>
+          
+          <AnimatePresence>
+            {isProcessed && !isLoading && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 20 }}
+              >
+                <StepControl 
+                  currentStep={currentStep}
+                  history={history}
+                  onStepChange={setCurrentStep}
+                />
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+
+        <div className="lg:col-span-8">
+          <AnimatePresence>
+            {error && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                className="mb-4 flex items-center gap-3 rounded-lg bg-red-900/50 p-4 text-red-300"
+              >
+                <AlertTriangle size={20} />
+                <p>{error}</p>
+              </motion.div>
+            )}
+          </AnimatePresence>
+          
+          {isLoading && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="flex h-96 w-full flex-col items-center justify-center gap-4 rounded-xl bg-dark-card"
+            >
+              <Loader className="animate-spin text-brand-purple" size={48} />
+              <p className="text-lg">Sedang mengklaster data...</p>
+            </motion.div>
+          )}
+
+          <AnimatePresence>
+            {!isLoading && currentIteration && (
+              <motion.div
+                className="space-y-8"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                key={currentStep}
+              >
+                <motion.div>
+                  <ClusterChart data={data} headers={selectedColumns} iteration={currentIteration} />
+                </motion.div>
+                
+                {isFinalStep && finalResult && (
+                   <motion.div 
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0, transition: { delay: 0.3 } }}
+                   >
+                      <ResultsDisplay data={data} headers={selectedColumns} result={finalResult} file={file} />
+                   </motion.div>
+                )}
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {!isLoading && !isProcessed && data.length > 0 && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+              <DataTable data={data.slice(0, 10)} headers={allNumericHeaders} />
+            </motion.div>
+          )}
+        </div>
+      </div>
+
+      <Theory />
+    </>
+  );
 }
+
+export default VisualizerPage;

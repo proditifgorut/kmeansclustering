@@ -1,30 +1,39 @@
-<!DOCTYPE html>
-<html lang="id" class="dark">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Visualisasi Klastering K-Means</title>
-
-    <meta name="description" content="Alat interaktif untuk memvisualisasikan algoritma klastering K-Means dengan data Anda sendiri. Unggah CSV, atur klaster, dan lihat hasilnya." />
-    <meta name="author" content="Dualite Alpha" />
-
-    <meta property="og:title" content="Visualisasi Klastering K-Means" />
-    <meta property="og:description" content="Alat interaktif untuk memvisualisasikan algoritma klastering K-Means dengan data Anda sendiri." />
-    <meta property="og:type" content="website" />
-    <meta property="og:url" content="https://alpha.dualite.dev" />
-    <meta property="og:image" content="https://i.ibb.co/67X3xfS/kmeans-visualizer-preview.png" />
-    <meta property="og:image:width" content="1200" />
-    <meta property="og:image:height" content="630" />
-    <meta property="og:image:alt" content="Pratinjau Visualisasi Klastering K-Means yang menampilkan scatter plot dengan klaster berwarna." />
-
-    <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Visualisasi Klastering K-Means" />
-    <meta name="twitter:description" content="Alat interaktif untuk memvisualisasikan algoritma klastering K-Means dengan data Anda sendiri." />
-    <meta name="twitter:image" content="https://i.ibb.co/67X3xfS/kmeans-visualizer-preview.png" />
-  </head>
-  <body class="bg-slate-900 text-slate-300">
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
-</html>
+{
+  "name": "kmeans-visualizer",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "lint": "eslint .",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "framer-motion": "^11.2.10",
+    "lucide-react": "^0.395.0",
+    "ml-kmeans": "^6.0.0",
+    "papaparse": "^5.4.1",
+    "plotly.js": "^2.33.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-plotly.js": "^2.6.0",
+    "react-router-dom": "^6.23.1"
+  },
+  "devDependencies": {
+    "@types/papaparse": "^5.3.14",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "@types/react-plotly.js": "^2.6.3",
+    "@types/react-router-dom": "^5.3.3",
+    "@vitejs/plugin-react": "^4.3.1",
+    "autoprefixer": "^10.4.19",
+    "eslint": "^8.57.0",
+    "eslint-plugin-react-hooks": "^4.6.2",
+    "eslint-plugin-react-refresh": "^0.4.7",
+    "postcss": "^8.4.38",
+    "tailwindcss": "^3.4.4",
+    "typescript": "^5.2.2",
+    "vite": "^5.2.13"
+  }
+}

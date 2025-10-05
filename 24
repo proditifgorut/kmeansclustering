@@ -1,81 +1,123 @@
-import React from 'react';
-import { ArrowLeft, ArrowRight, FastForward, Rewind } from 'lucide-react';
-import { KMeansIteration } from '../types';
+import { KMeansIteration, KMeansResult } from '../types';
 
-interface StepControlProps {
-  currentStep: number;
-  history: KMeansIteration[];
-  onStepChange: (newStep: number) => void;
+function euclideanDistance(a: number[], b: number[]): number {
+  return Math.sqrt(a.reduce((sum, val, i) => sum + (val - b[i]) ** 2, 0));
 }
 
-export const StepControl: React.FC<StepControlProps> = ({ currentStep, history, onStepChange }) => {
-  const totalSteps = history.length;
-  const currentIterationData = history[currentStep];
+export function runKMeansStepByStep(data: number[][], k: number, maxIterations: number = 20): KMeansIteration[] {
+  if (data.length === 0 || k < 1) {
+    throw new Error('Data atau nilai k tidak valid untuk K-Means.');
+  }
+  if (data.length < k) {
+    throw new Error('Jumlah klaster (k) tidak boleh lebih banyak dari jumlah titik data.');
+  }
 
-  const getStepLabel = (step: KMeansIteration) => {
-    if (step.stepName === 'Initialization') return 'Inisialisasi';
-    const stepType = step.stepName === 'Assignment' ? 'Tetapkan Poin' : 'Perbarui Centroid';
-    return `Iterasi ${step.iteration}: ${stepType}`;
-  };
+  const history: KMeansIteration[] = [];
+  let iterationCount = 0;
 
-  return (
-    <div className="card p-4 space-y-4">
-      <div className="flex items-center justify-between">
-        <h3 className="font-semibold text-white">Langkah-langkah Algoritma</h3>
-        <span className="text-sm font-mono px-2 py-1 bg-slate-700 rounded-md">
-          {currentStep + 1} / {totalSteps}
-        </span>
-      </div>
-      
-      <div className="text-center py-2 bg-slate-800/50 rounded-lg">
-        <p className="font-semibold text-brand-purple">{getStepLabel(currentIterationData)}</p>
-      </div>
+  // 1. Initialization: Select first K points as initial centroids for deterministic behavior
+  let centroids = data.slice(0, k).map(p => [...p]);
+  let assignments = new Array(data.length).fill(-1);
+  
+  history.push({
+    centroids: JSON.parse(JSON.stringify(centroids)),
+    assignments,
+    stepName: 'Initialization',
+    iteration: iterationCount,
+  });
 
-      <div className="space-y-3">
-        <label htmlFor="step-slider" className="text-sm text-slate-400">Progres Langkah</label>
-        <input
-          id="step-slider"
-          type="range"
-          min="0"
-          max={totalSteps - 1}
-          value={currentStep}
-          onChange={(e) => onStepChange(parseInt(e.target.value))}
-          className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-brand-purple"
-        />
-      </div>
+  for (let i = 0; i < maxIterations; i++) {
+    iterationCount = i + 1;
+    let assignmentsChanged = false;
 
-      <div className="grid grid-cols-4 gap-2">
-        <button
-          onClick={() => onStepChange(0)}
-          disabled={currentStep === 0}
-          className="btn btn-secondary"
-          title="Ke Awal"
-        >
-          <Rewind size={16} />
-        </button>
-        <button
-          onClick={() => onStepChange(currentStep - 1)}
-          disabled={currentStep === 0}
-          className="btn btn-secondary"
-        >
-          <ArrowLeft size={16} />
-        </button>
-        <button
-          onClick={() => onStepChange(currentStep + 1)}
-          disabled={currentStep === totalSteps - 1}
-          className="btn btn-secondary"
-        >
-          <ArrowRight size={16} />
-        </button>
-        <button
-          onClick={() => onStepChange(totalSteps - 1)}
-          disabled={currentStep === totalSteps - 1}
-          className="btn btn-secondary"
-          title="Ke Langkah Akhir"
-        >
-          <FastForward size={16} />
-        </button>
-      </div>
-    </div>
-  );
-};
+    // 2. Assignment Step
+    const newAssignments = data.map((point, pointIndex) => {
+      let minDistance = Infinity;
+      let closestCentroidIndex = -1;
+      centroids.forEach((centroid, centroidIndex) => {
+        const distance = euclideanDistance(point, centroid);
+        if (distance < minDistance) {
+          minDistance = distance;
+          closestCentroidIndex = centroidIndex;
+        }
+      });
+      if (assignments[pointIndex] !== closestCentroidIndex) {
+        assignmentsChanged = true;
+      }
+      return closestCentroidIndex;
+    });
+    assignments = newAssignments;
+
+    history.push({
+      centroids: JSON.parse(JSON.stringify(centroids)),
+      assignments: [...assignments],
+      stepName: 'Assignment',
+      iteration: iterationCount,
+    });
+
+    // 3. Update Step
+    const newCentroids: number[][] = Array.from({ length: k }, () => new Array(data[0].length).fill(0));
+    const counts = new Array(k).fill(0);
+
+    data.forEach((point, pointIndex) => {
+      const clusterIndex = assignments[pointIndex];
+      if (clusterIndex !== -1) {
+        counts[clusterIndex]++;
+        point.forEach((value, dimIndex) => {
+          newCentroids[clusterIndex][dimIndex] += value;
+        });
+      }
+    });
+    
+    let centroidsChanged = false;
+    newCentroids.forEach((centroid, centroidIndex) => {
+      const oldCentroid = centroids[centroidIndex];
+      if (counts[centroidIndex] > 0) {
+        const newCentroid = centroid.map(sum => sum / counts[centroidIndex]);
+        if (JSON.stringify(oldCentroid) !== JSON.stringify(newCentroid)) {
+          centroidsChanged = true;
+        }
+        centroids[centroidIndex] = newCentroid;
+      } else {
+        // Re-initialize centroid if cluster becomes empty
+        centroids[centroidIndex] = data[Math.floor(Math.random() * data.length)];
+        centroidsChanged = true;
+      }
+    });
+
+    history.push({
+      centroids: JSON.parse(JSON.stringify(centroids)),
+      assignments: [...assignments],
+      stepName: 'Update',
+      iteration: iterationCount,
+    });
+
+    // 4. Check for convergence
+    if (!assignmentsChanged || !centroidsChanged) {
+      break;
+    }
+  }
+
+  return history;
+}
+
+export function getFinalResultFromHistory(history: KMeansIteration[], data: number[][]): KMeansResult {
+    if (history.length === 0) {
+        throw new Error("History is empty");
+    }
+    const finalState = history[history.length - 1];
+    
+    let inertia = 0;
+    data.forEach((point, index) => {
+        const centroid = finalState.centroids[finalState.assignments[index]];
+        if (centroid) {
+            inertia += euclideanDistance(point, centroid) ** 2;
+        }
+    });
+
+    return {
+        assignments: finalState.assignments,
+        centroids: finalState.centroids,
+        inertia,
+    };
+}

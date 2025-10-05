@@ -1,21 +1,13 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+import { StrictMode } from 'react';
+import { createRoot } from 'react-dom/client';
+import { BrowserRouter } from 'react-router-dom';
+import App from './App.tsx';
+import './index.css';
 
-@layer components {
-  .btn {
-    @apply inline-flex items-center justify-center rounded-md px-4 py-2 text-sm font-semibold text-white shadow-sm transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-900;
-  }
-  .btn-primary {
-    @apply bg-brand-purple hover:bg-opacity-90 disabled:cursor-not-allowed disabled:opacity-50;
-  }
-  .btn-secondary {
-    @apply bg-slate-600 hover:bg-slate-500;
-  }
-  .card {
-    @apply rounded-xl border border-dark-border bg-dark-card shadow-lg;
-  }
-  .input-field {
-    @apply block w-full rounded-md border-dark-border bg-slate-800 px-3 py-2 text-slate-300 placeholder-slate-500 shadow-sm focus:border-brand-purple focus:outline-none focus:ring-brand-purple sm:text-sm;
-  }
-}
+createRoot(document.getElementById('root')!).render(
+  <StrictMode>
+    <BrowserRouter>
+      <App />
+    </BrowserRouter>
+  </StrictMode>,
+);

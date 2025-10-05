@@ -1,30 +1,21 @@
-import { Routes, Route, Outlet } from 'react-router-dom';
-import { Header } from './components/Header';
-import VisualizerPage from './pages/VisualizerPage';
-import SimulationPage from './pages/SimulationPage';
-import PsoPage from './pages/PsoPage';
-import SimulasiPsoPage from './pages/SimulasiPsoPage';
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-const Layout = () => (
-  <div className="min-h-screen bg-dark-bg font-sans">
-    <main className="container mx-auto px-4 py-8 md:py-12">
-      <Header />
-      <Outlet />
-    </main>
-  </div>
-);
-
-function App() {
-  return (
-    <Routes>
-      <Route element={<Layout />}>
-        <Route index element={<VisualizerPage />} />
-        <Route path="simulasi" element={<SimulationPage />} />
-        <Route path="optimasi-pso" element={<PsoPage />} />
-        <Route path="simulasi-pso" element={<SimulasiPsoPage />} />
-      </Route>
-    </Routes>
-  );
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center rounded-md px-4 py-2 text-sm font-semibold text-white shadow-sm transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-900;
+  }
+  .btn-primary {
+    @apply bg-brand-purple hover:bg-opacity-90 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .btn-secondary {
+    @apply bg-slate-600 hover:bg-slate-500;
+  }
+  .card {
+    @apply rounded-xl border border-dark-border bg-dark-card shadow-lg;
+  }
+  .input-field {
+    @apply block w-full rounded-md border-dark-border bg-slate-800 px-3 py-2 text-slate-300 placeholder-slate-500 shadow-sm focus:border-brand-purple focus:outline-none focus:ring-brand-purple sm:text-sm;
+  }
 }
-
-export default App;

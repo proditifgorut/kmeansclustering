@@ -1,119 +1,44 @@
-import React, { useRef } from 'react';
-import Papa from 'papaparse';
-import { Upload, FileText, BarChart, Settings, Loader } from 'lucide-react';
+import React from 'react';
 import { Point } from '../types';
 
-interface UploadFormProps {
-  onDataLoaded: (data: Point[], headers: string[], file: File) => void;
-  onKChange: (k: number) => void;
-  k: number;
-  onProcess: () => void;
-  isLoading: boolean;
-  file: File | null;
+interface DataTableProps {
+  data: Point[];
+  headers: string[];
 }
 
-export const UploadForm: React.FC<UploadFormProps> = ({ onDataLoaded, onKChange, k, onProcess, isLoading, file }) => {
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFile = event.target.files?.[0];
-    if (selectedFile) {
-      Papa.parse(selectedFile, {
-        header: true,
-        skipEmptyLines: true,
-        dynamicTyping: true,
-        complete: (results) => {
-          const numericHeaders = (results.meta.fields || []).filter(field =>
-            results.data.every((row: any) => typeof row[field] === 'number' || row[field] === null)
-          );
-
-          if (numericHeaders.length < 2) {
-            alert('CSV harus berisi setidaknya 2 kolom numerik.');
-            return;
-          }
-          onDataLoaded(results.data as Point[], numericHeaders, selectedFile);
-        },
-      });
-    }
-  };
-
+export const DataTable: React.FC<DataTableProps> = ({ data, headers }) => {
+  const displayHeaders = headers.length > 0 ? headers : Object.keys(data[0] || {});
+  
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="flex items-center gap-2 text-xl font-semibold text-white">
-          <Settings size={22} className="text-brand-purple" />
-          Konfigurasi
-        </h2>
-        <p className="text-sm text-slate-400">Unggah data dan atur parameter.</p>
+    <div className="card overflow-hidden">
+      <div className="p-4">
+        <h3 className="font-semibold text-white">Pratinjau Dataset</h3>
+        <p className="text-sm text-slate-400">Menampilkan 10 baris pertama. {headers.length > 0 ? "Kolom yang dipilih untuk visualisasi." : "Semua kolom terdeteksi."}</p>
       </div>
-
-      <div className="space-y-4">
-        <div>
-          <label htmlFor="file-upload" className="mb-1 block text-sm font-medium text-slate-300">
-            1. Unggah Dataset (.csv)
-          </label>
-          <div
-            className="flex cursor-pointer justify-center rounded-lg border-2 border-dashed border-dark-border px-6 py-10 hover:border-brand-purple"
-            onClick={() => fileInputRef.current?.click()}
-          >
-            <div className="text-center">
-              {file ? (
-                <>
-                  <FileText className="mx-auto h-12 w-12 text-green-400" />
-                  <p className="mt-2 font-semibold text-green-400">{file.name}</p>
-                  <p className="text-xs text-slate-400">Klik untuk mengunggah file lain</p>
-                </>
-              ) : (
-                <>
-                  <Upload className="mx-auto h-12 w-12 text-slate-500" />
-                  <p className="mt-2 text-sm text-slate-400">
-                    <span className="font-semibold text-brand-purple">Klik untuk mengunggah</span> atau seret & lepas
-                  </p>
-                  <p className="text-xs text-slate-500">Hanya file CSV</p>
-                </>
-              )}
-            </div>
-          </div>
-          <input
-            ref={fileInputRef}
-            id="file-upload"
-            name="file-upload"
-            type="file"
-            className="sr-only"
-            accept=".csv"
-            onChange={handleFileChange}
-          />
-        </div>
-
-        <div>
-          <label htmlFor="cluster-count" className="mb-1 block text-sm font-medium text-slate-300">
-            2. Jumlah Klaster (K)
-          </label>
-          <input
-            type="number"
-            id="cluster-count"
-            className="input-field"
-            value={k}
-            onChange={(e) => onKChange(Math.max(2, parseInt(e.target.value) || 2))}
-            min="2"
-            max="20"
-          />
-        </div>
+      <div className="overflow-x-auto">
+        <table className="min-w-full divide-y divide-dark-border">
+          <thead className="bg-slate-800">
+            <tr>
+              {displayHeaders.map((header) => (
+                <th key={header} scope="col" className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-400">
+                  {header}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-dark-border bg-dark-card">
+            {data.map((row, rowIndex) => (
+              <tr key={rowIndex} className="hover:bg-slate-700/50">
+                {displayHeaders.map((header) => (
+                  <td key={header} className="whitespace-nowrap px-6 py-4 text-sm text-slate-300">
+                    {typeof row[header] === 'number' ? (row[header] as number).toFixed(2) : row[header] ?? 'N/A'}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
-
-      <button onClick={onProcess} disabled={isLoading} className="btn btn-primary w-full">
-        {isLoading ? (
-          <>
-            <Loader className="mr-2 h-4 w-4 animate-spin" />
-            Memproses...
-          </>
-        ) : (
-          <>
-            <BarChart className="mr-2 h-4 w-4" />
-            Proses K-Means
-          </>
-        )}
-      </button>
     </div>
   );
 };

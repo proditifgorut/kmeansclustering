@@ -1,115 +1,110 @@
-import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { KMeansIteration, Point, KMeansResult } from '../types';
-import { runKMeansWithInitialCentroids } from '../lib/pso-kmeans';
-import { generateClusteredData } from '../lib/data-generator';
-import { PsoControls } from '../components/PsoControls';
-import { ClusterChart } from '../components/ClusterChart';
-import { FitnessChart } from '../components/FitnessChart';
-import { ResultsDisplay } from '../components/ResultsDisplay';
-import { Loader } from 'lucide-react';
-import { runPso } from '../lib/pso-kmeans';
+import React, { useRef, useState } from 'react';
+import Papa from 'papaparse';
+import { Upload, FileText, Play, Loader, BrainCircuit, SlidersHorizontal, AlertTriangle } from 'lucide-react';
+import { Point } from '../types';
+import { Slider } from './ui/Slider';
+import { ColumnSelector } from './ColumnSelector';
 
-function SimulasiPsoPage() {
-  const [data, setData] = useState<Point[]>([]);
-  const [headers, setHeaders] = useState<string[]>([]);
-  
-  // Data generation params
-  const [k, setK] = useState<number>(4);
-  const [numPoints, setNumPoints] = useState<number>(200);
-  const [clusterSpread, setClusterSpread] = useState<number>(5);
+interface PsoUploadFormProps {
+  file: File | null;
+  onDataLoaded: (data: Point[], headers: string[], file: File) => void;
+  allNumericHeaders: string[];
+  selectedColumns: string[];
+  onColumnsSelected: (selected: string[]) => void;
+  k: number; onKChange: (v: number) => void;
+  swarmSize: number; onSwarmSizeChange: (v: number) => void;
+  psoIterations: number; onPsoIterationsChange: (v: number) => void;
+  inertiaWeight: number; onInertiaWeightChange: (v: number) => void;
+  c1: number; onC1Change: (v: number) => void;
+  c2: number; onC2Change: (v: number) => void;
+  onProcess: () => void;
+  isLoading: boolean;
+}
 
-  // PSO params
-  const [swarmSize, setSwarmSize] = useState<number>(20);
-  const [psoIterations, setPsoIterations] = useState<number>(50);
-  const [inertiaWeight, setInertiaWeight] = useState<number>(0.7);
-  const [c1, setC1] = useState<number>(1.5);
-  const [c2, setC2] = useState<number>(1.5);
+export const PsoUploadForm: React.FC<PsoUploadFormProps> = (props) => {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [parseError, setParseError] = useState<string | null>(null);
 
-  // Results
-  const [finalResult, setFinalResult] = useState<KMeansResult | null>(null);
-  const [fitnessHistory, setFitnessHistory] = useState<number[]>([]);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
-  
-  const handleRun = () => {
-    setIsLoading(true);
-    setFinalResult(null);
-    setFitnessHistory([]);
-
-    setTimeout(() => {
-      // 1. Generate new data
-      const { points, headers: newHeaders } = generateClusteredData(numPoints, k, clusterSpread);
-      setData(points);
-      setHeaders(newHeaders);
-      const numericData = points.map(row => newHeaders.map(header => row[header] as number));
-
-      // 2. Run PSO to find best initial centroids
-      const { bestCentroids, fitnessHistory: psoFitnessHistory } = runPso(numericData, k, {
-        swarmSize,
-        maxIterations: psoIterations,
-        w: inertiaWeight,
-        c1,
-        c2,
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = event.target.files?.[0];
+    if (selectedFile) {
+      setParseError(null);
+      Papa.parse(selectedFile, {
+        header: true, skipEmptyLines: true, dynamicTyping: true,
+        complete: (results) => {
+          const numericHeaders = (results.meta.fields || []).filter(field =>
+            results.data.length > 0 && results.data.every((row: any) => typeof row[field] === 'number' || row[field] === null)
+          );
+          if (numericHeaders.length < 2) {
+            setParseError('CSV harus berisi setidaknya 2 kolom numerik.');
+            return;
+          }
+          props.onDataLoaded(results.data as Point[], numericHeaders, selectedFile);
+        },
+        error: (err) => {
+          setParseError(`Gagal mem-parsing file: ${err.message}`);
+        }
       });
-      setFitnessHistory(psoFitnessHistory);
-      
-      // 3. Run K-Means with the optimized centroids
-      const finalClusteringResult = runKMeansWithInitialCentroids(numericData, k, bestCentroids);
-      setFinalResult(finalClusteringResult);
-
-      setIsLoading(false);
-    }, 200);
+    }
   };
   
-  useEffect(() => {
-    handleRun();
-  }, []);
-
-  const mockIteration: KMeansIteration | null = finalResult ? {
-    centroids: finalResult.centroids,
-    assignments: finalResult.assignments,
-    stepName: 'Hasil Optimasi PSO',
-    iteration: finalResult.iterations || 0,
-  } : null;
+  const canProcess = props.selectedColumns.length >= 2 && props.selectedColumns.length <= 3 && !props.isLoading && props.file;
 
   return (
-    <div className="grid grid-cols-1 gap-8 lg:grid-cols-12">
-      <div className="lg:col-span-4 space-y-6">
-        <PsoControls
-          k={k} onKChange={setK}
-          numPoints={numPoints} onNumPointsChange={setNumPoints}
-          clusterSpread={clusterSpread} onClusterSpreadChange={setClusterSpread}
-          swarmSize={swarmSize} onSwarmSizeChange={setSwarmSize}
-          psoIterations={psoIterations} onPsoIterationsChange={setPsoIterations}
-          inertiaWeight={inertiaWeight} onInertiaWeightChange={setInertiaWeight}
-          c1={c1} onC1Change={setC1}
-          c2={c2} onC2Change={setC2}
-          onRun={handleRun}
-          isLoading={isLoading}
-        />
-      </div>
-      <div className="lg:col-span-8 space-y-8">
-        {isLoading && (
-          <motion.div
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-            className="flex min-h-[500px] w-full flex-col items-center justify-center gap-4 rounded-xl bg-dark-card"
+    <div className="card p-6">
+      <div className="space-y-6">
+        <div>
+          <h2 className="flex items-center gap-2 text-xl font-semibold text-white">
+            <BrainCircuit size={22} className="text-brand-purple" />
+            Konfigurasi Optimasi PSO
+          </h2>
+          <p className="text-sm text-slate-400">Unggah data dan atur parameter untuk algoritma PSO-KMeans.</p>
+        </div>
+
+        <div>
+          <label className="mb-1 block text-sm font-medium text-slate-300">1. Unggah Dataset (.csv)</label>
+          <div
+            className="flex cursor-pointer justify-center rounded-lg border-2 border-dashed border-dark-border px-6 py-10 hover:border-brand-purple"
+            onClick={() => fileInputRef.current?.click()}
           >
-            <Loader className="animate-spin text-brand-purple" size={48} />
-            <p className="text-lg">Menjalankan Simulasi Optimasi PSO...</p>
-          </motion.div>
+            <div className="text-center">
+              {props.file ? (
+                <><FileText className="mx-auto h-12 w-12 text-green-400" /><p className="mt-2 font-semibold text-green-400">{props.file.name}</p><p className="text-xs text-slate-400">Klik untuk mengganti file</p></>
+              ) : (
+                <><Upload className="mx-auto h-12 w-12 text-slate-500" /><p className="mt-2 text-sm text-slate-400"><span className="font-semibold text-brand-purple">Klik untuk mengunggah</span></p><p className="text-xs text-slate-500">Hanya file CSV</p></>
+              )}
+            </div>
+          </div>
+          <input ref={fileInputRef} type="file" className="sr-only" accept=".csv" onChange={handleFileChange} />
+          {parseError && <p className="mt-2 text-sm text-red-400 flex items-center gap-2"><AlertTriangle size={16}/> {parseError}</p>}
+        </div>
+        
+        {props.allNumericHeaders.length > 0 && (
+          <ColumnSelector
+            allHeaders={props.allNumericHeaders}
+            selectedHeaders={props.selectedColumns}
+            onSelectionChange={props.onColumnsSelected}
+          />
         )}
-        <AnimatePresence>
-          {!isLoading && finalResult && mockIteration && (
-            <motion.div className="space-y-8" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-              <FitnessChart history={fitnessHistory} />
-              <ClusterChart data={data} headers={headers} iteration={mockIteration} />
-              <ResultsDisplay data={data} headers={headers} result={finalResult} file={null} />
-            </motion.div>
+
+        <div className="space-y-4 rounded-lg border border-dark-border p-4">
+          <h3 className="flex items-center gap-2 text-md font-semibold text-white"><SlidersHorizontal size={18} /> 3. Atur Parameter</h3>
+          <Slider label="Jumlah Klaster (K)" value={props.k} onChange={props.onKChange} min={2} max={20} step={1} />
+          <Slider label="Ukuran Swarm" value={props.swarmSize} onChange={props.onSwarmSizeChange} min={10} max={100} step={5} />
+          <Slider label="Iterasi PSO" value={props.psoIterations} onChange={props.onPsoIterationsChange} min={10} max={200} step={5} />
+          <Slider label="Bobot Inersia (w)" value={props.inertiaWeight} onChange={props.onInertiaWeightChange} min={0.1} max={1.2} step={0.05} />
+          <Slider label="Koef. Kognitif (c1)" value={props.c1} onChange={props.onC1Change} min={0.1} max={3} step={0.1} />
+          <Slider label="Koef. Sosial (c2)" value={props.c2} onChange={props.onC2Change} min={0.1} max={3} step={0.1} />
+        </div>
+
+        <button onClick={props.onProcess} disabled={!canProcess} className="btn btn-primary w-full">
+          {props.isLoading ? (
+            <><Loader className="mr-2 h-4 w-4 animate-spin" /> Memproses...</>
+          ) : (
+            <><Play className="mr-2 h-4 w-4" /> Proses Optimasi</>
           )}
-        </AnimatePresence>
+        </button>
       </div>
     </div>
   );
-}
-
-export default SimulasiPsoPage;
+};

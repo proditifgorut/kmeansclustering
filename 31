@@ -1,73 +1,162 @@
-import React from 'react';
-import { Play, SlidersHorizontal, Loader, Settings, BrainCircuit } from 'lucide-react';
+import { KMeansResult } from '../types';
 
-interface PsoControlsProps {
-  k: number; onKChange: (v: number) => void;
-  numPoints: number; onNumPointsChange: (v: number) => void;
-  clusterSpread: number; onClusterSpreadChange: (v: number) => void;
-  swarmSize: number; onSwarmSizeChange: (v: number) => void;
-  psoIterations: number; onPsoIterationsChange: (v: number) => void;
-  inertiaWeight: number; onInertiaWeightChange: (v: number) => void;
-  c1: number; onC1Change: (v: number) => void;
-  c2: number; onC2Change: (v: number) => void;
-  onRun: () => void;
-  isLoading: boolean;
+// --- Helper Functions ---
+function euclideanDistanceSq(a: number[], b: number[]): number {
+  return a.reduce((sum, val, i) => sum + (val - b[i]) ** 2, 0);
 }
 
-const Slider = ({ label, value, onChange, min, max, step, help }: any) => (
-  <div>
-    <label className="mb-1 flex justify-between text-sm font-medium text-slate-300">
-      <span>{label}</span>
-      <span className="font-mono text-brand-purple">{value}</span>
-    </label>
-    <input
-      type="range"
-      min={min} max={max} step={step}
-      value={value}
-      onChange={(e) => onChange(parseFloat(e.target.value))}
-      className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-brand-purple"
-    />
-    {help && <p className="text-xs text-slate-500 mt-1">{help}</p>}
-  </div>
-);
+function getRandomCentroids(data: number[][], k: number): number[][] {
+  const shuffled = data.sort(() => 0.5 - Math.random());
+  return shuffled.slice(0, k);
+}
 
-export const PsoControls: React.FC<PsoControlsProps> = (props) => {
-  const { onRun, isLoading } = props;
-  return (
-    <div className="card p-6">
-      <div className="space-y-6">
-        <div>
-          <h2 className="flex items-center gap-2 text-xl font-semibold text-white">
-            <BrainCircuit size={22} className="text-brand-purple" />
-            Parameter Optimasi PSO
-          </h2>
-          <p className="text-sm text-slate-400">Atur parameter untuk data dan algoritma PSO-KMeans.</p>
-        </div>
+// --- Core PSO-KMeans Logic ---
 
-        <div className="space-y-4 rounded-lg border border-dark-border p-4">
-          <h3 className="flex items-center gap-2 text-md font-semibold text-white"><Settings size={18} /> Parameter Data</h3>
-          <Slider label="Jumlah Klaster (K)" value={props.k} onChange={props.onKChange} min={2} max={10} step={1} />
-          <Slider label="Jumlah Titik Data" value={props.numPoints} onChange={props.onNumPointsChange} min={50} max={1000} step={10} />
-          <Slider label="Sebaran Klaster" value={props.clusterSpread} onChange={props.onClusterSpreadChange} min={1} max={20} step={1} />
-        </div>
+interface PsoOptions {
+  swarmSize: number;
+  maxIterations: number;
+  w: number; // inertia weight
+  c1: number; // cognitive coefficient
+  c2: number; // social coefficient
+}
 
-        <div className="space-y-4 rounded-lg border border-dark-border p-4">
-          <h3 className="flex items-center gap-2 text-md font-semibold text-white"><SlidersHorizontal size={18} /> Parameter PSO</h3>
-          <Slider label="Ukuran Swarm (Partikel)" value={props.swarmSize} onChange={props.onSwarmSizeChange} min={10} max={100} step={5} />
-          <Slider label="Iterasi PSO" value={props.psoIterations} onChange={props.onPsoIterationsChange} min={10} max={200} step={5} />
-          <Slider label="Bobot Inersia (w)" value={props.inertiaWeight} onChange={props.onInertiaWeightChange} min={0.1} max={1.2} step={0.05} />
-          <Slider label="Koefisien Kognitif (c1)" value={props.c1} onChange={props.onC1Change} min={0.1} max={3} step={0.1} />
-          <Slider label="Koefisien Sosial (c2)" value={props.c2} onChange={props.onC2Change} min={0.1} max={3} step={0.1} />
-        </div>
+interface Particle {
+  position: number[][]; // centroids
+  velocity: number[][];
+  pbestPosition: number[][];
+  pbestFitness: number;
+}
 
-        <button onClick={onRun} disabled={isLoading} className="btn btn-primary w-full">
-          {isLoading ? (
-            <><Loader className="mr-2 h-4 w-4 animate-spin" /> Menjalankan...</>
-          ) : (
-            <><Play className="mr-2 h-4 w-4" /> Jalankan Optimasi</>
-          )}
-        </button>
-      </div>
-    </div>
-  );
-};
+// Calculates fitness (WCSS - Within-Cluster Sum of Squares) for a given set of centroids
+function calculateFitness(data: number[][], centroids: number[][]): number {
+  let wcss = 0;
+  for (const point of data) {
+    let minDistance = Infinity;
+    for (const centroid of centroids) {
+      const distance = euclideanDistanceSq(point, centroid);
+      if (distance < minDistance) {
+        minDistance = distance;
+      }
+    }
+    wcss += minDistance;
+  }
+  return wcss;
+}
+
+export function runPso(data: number[][], k: number, options: PsoOptions) {
+  const { swarmSize, maxIterations, w, c1, c2 } = options;
+  const dimensions = data[0].length;
+  const fitnessHistory: number[] = [];
+
+  // 1. Initialize Swarm
+  let swarm: Particle[] = [];
+  for (let i = 0; i < swarmSize; i++) {
+    const position = getRandomCentroids(data, k);
+    swarm.push({
+      position,
+      velocity: Array.from({ length: k }, () => Array(dimensions).fill(0)),
+      pbestPosition: position,
+      pbestFitness: calculateFitness(data, position),
+    });
+  }
+
+  let gbestPosition = swarm.reduce((prev, curr) => curr.pbestFitness < prev.pbestFitness ? curr : prev).pbestPosition;
+  let gbestFitness = calculateFitness(data, gbestPosition);
+
+  // 2. Main PSO Loop
+  for (let iter = 0; iter < maxIterations; iter++) {
+    for (const particle of swarm) {
+      // Update velocity and position for each centroid in the particle
+      const newVelocity: number[][] = [];
+      const newPosition: number[][] = [];
+
+      for (let i = 0; i < k; i++) {
+        const r1 = Math.random();
+        const r2 = Math.random();
+        
+        const vel = particle.velocity[i].map((v, dim) => 
+          w * v +
+          c1 * r1 * (particle.pbestPosition[i][dim] - particle.position[i][dim]) +
+          c2 * r2 * (gbestPosition[i][dim] - particle.position[i][dim])
+        );
+        newVelocity.push(vel);
+
+        const pos = particle.position[i].map((p, dim) => p + vel[dim]);
+        newPosition.push(pos);
+      }
+      
+      particle.velocity = newVelocity;
+      particle.position = newPosition;
+
+      // Evaluate fitness
+      const currentFitness = calculateFitness(data, particle.position);
+      if (currentFitness < particle.pbestFitness) {
+        particle.pbestFitness = currentFitness;
+        particle.pbestPosition = particle.position;
+      }
+      if (currentFitness < gbestFitness) {
+        gbestFitness = currentFitness;
+        gbestPosition = particle.position;
+      }
+    }
+    fitnessHistory.push(gbestFitness);
+  }
+
+  return { bestCentroids: gbestPosition, fitnessHistory };
+}
+
+
+export function runKMeansWithInitialCentroids(data: number[][], k: number, initialCentroids: number[][], maxIterations = 100): KMeansResult {
+  let centroids = JSON.parse(JSON.stringify(initialCentroids));
+  let assignments = new Array(data.length).fill(0);
+  let iterations = 0;
+
+  for (let i = 0; i < maxIterations; i++) {
+    iterations = i + 1;
+    let assignmentsChanged = false;
+
+    // Assignment step
+    data.forEach((point, pointIndex) => {
+      let minDistance = Infinity;
+      let closestCentroidIndex = -1;
+      centroids.forEach((centroid, centroidIndex) => {
+        const distance = euclideanDistanceSq(point, centroid);
+        if (distance < minDistance) {
+          minDistance = distance;
+          closestCentroidIndex = centroidIndex;
+        }
+      });
+      if (assignments[pointIndex] !== closestCentroidIndex) {
+        assignmentsChanged = true;
+      }
+      assignments[pointIndex] = closestCentroidIndex;
+    });
+
+    // Update step
+    const newCentroids: number[][] = Array.from({ length: k }, () => new Array(data[0].length).fill(0));
+    const counts = new Array(k).fill(0);
+    data.forEach((point, pointIndex) => {
+      const clusterIndex = assignments[pointIndex];
+      counts[clusterIndex]++;
+      point.forEach((val, dim) => newCentroids[clusterIndex][dim] += val);
+    });
+
+    let centroidsChanged = false;
+    newCentroids.forEach((centroid, i) => {
+        if(counts[i] > 0) {
+            const newCentroid = centroid.map(sum => sum / counts[i]);
+            if(JSON.stringify(centroids[i]) !== JSON.stringify(newCentroid)) {
+                centroidsChanged = true;
+            }
+            centroids[i] = newCentroid;
+        }
+    });
+
+    if (!assignmentsChanged || !centroidsChanged) {
+      break;
+    }
+  }
+
+  const inertia = calculateFitness(data, centroids);
+  return { assignments, centroids, inertia, iterations };
+}
