@@ -3,6 +3,7 @@ import { Header } from './components/Header';
 import VisualizerPage from './pages/VisualizerPage';
 import SimulationPage from './pages/SimulationPage';
 import PsoPage from './pages/PsoPage';
+import SimulasiPsoPage from './pages/SimulasiPsoPage';
 
 const Layout = () => (
   <div className="min-h-screen bg-dark-bg font-sans">
@@ -20,6 +21,7 @@ function App() {
         <Route index element={<VisualizerPage />} />
         <Route path="simulasi" element={<SimulationPage />} />
         <Route path="optimasi-pso" element={<PsoPage />} />
+        <Route path="simulasi-pso" element={<SimulasiPsoPage />} />
       </Route>
     </Routes>
   );

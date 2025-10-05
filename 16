@@ -16,7 +16,7 @@ export const Header: React.FC = () => {
           Alat interaktif untuk menganalisis dan mensimulasikan algoritma K-Means.
         </p>
       </div>
-      <nav className="mt-8 flex flex-wrap justify-center gap-4" aria-label="Main navigation">
+      <nav className="mt-8 flex flex-wrap justify-center gap-2 sm:gap-4" aria-label="Main navigation">
         <NavLink 
           to="/"
           className={({ isActive }) => `${navLinkClasses} ${isActive ? activeLinkClasses : inactiveLinkClasses}`}
@@ -33,7 +33,13 @@ export const Header: React.FC = () => {
           to="/optimasi-pso"
           className={({ isActive }) => `${navLinkClasses} ${isActive ? activeLinkClasses : inactiveLinkClasses}`}
         >
-          Optimasi PSO
+          Optimasi PSO (Data)
+        </NavLink>
+        <NavLink 
+          to="/simulasi-pso"
+          className={({ isActive }) => `${navLinkClasses} ${isActive ? activeLinkClasses : inactiveLinkClasses}`}
+        >
+          Simulasi PSO
         </NavLink>
       </nav>
     </header>
